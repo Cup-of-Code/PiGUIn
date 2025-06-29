@@ -1,3 +1,10 @@
+#DISCLAIMER: 
+    #Några externa fonts kan behöva laddas ner för att köra programmet:
+        #    https://www.dafont.com/super-vibes.font
+        #    https://www.dafont.com/daily-bubble.font
+    # Filsökvägen på rad 125 kan behöva justeras
+
+
 import sys
 
 from PyQt5.QtCore import (
