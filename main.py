@@ -5,14 +5,14 @@
     # Filsökvägen på rad 125 kan behöva justeras
 import sys
 from PyQt5.QtGui import QFont
-import os
+import os, time
+from LoRaWAN import LoRa
+from secrets import DEV_EUI, APP_EUI, APP_KEY  
 from PyQt5.QtCore import (
     QSize,
     Qt,
     QTimer, QTime,
     )
-
-
 
 from PyQt5.QtWidgets import ( 
     QApplication,
@@ -24,7 +24,11 @@ from PyQt5.QtWidgets import (
     QWidget,
    )
 
+USE_SCALE     = False         
+SCALE_FACTOR  = 0.48          # skalar ner storleken från 667×1000 --> 320×480 om aktiverad
 
+def S(v: int) -> int:         
+    return int(v * SCALE_FACTOR) if USE_SCALE else v
 
 
 class MainWindow(QMainWindow):
@@ -33,7 +37,7 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(667, 1000)) #667x1000 är samma ratio som LCD-skärmen (320x480)
+        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
         self.setWindowTitle("PiGUIn")
         currentTime = timeKeeper()
         layout = QGridLayout() #med denna layout så sorteras de tillagda komponenterna i en grid-layout
@@ -78,8 +82,8 @@ class MainWindow(QMainWindow):
             greeting = "Good evening!"
         
         greetingLabel = QLabel(greeting)
-        greetingLabel.setFixedSize(450, 80)  
-        greetingLabel.setStyleSheet("color: #cc6699; font-family: 'Super Vibes'; font-size: 45px; ") #Daily Bubble är en custom font: dafont.com/daily-bubble.font
+        greetingLabel.setFixedSize(S(450), S(80))  
+        greetingLabel.setStyleSheet("color: #cc6699; font-family: 'Super Vibes'; font-size: S(45)px; ") #Daily Bubble är en custom font: dafont.com/daily-bubble.font
 
         return greetingLabel        
         
@@ -101,14 +105,11 @@ class MainWindow(QMainWindow):
         
 
 
-
-
-
 class menuButton(QPushButton):
     """
     En klass för att skapa återanvändbara knappar till menufunktionaliteten
-    """
-    def __init__(self, title, width= 300, height=300):
+    """  
+    def __init__(self, title, width= S(300), height=S(300)):
         super().__init__(title)
         self.title = title
         self.setFixedSize(width, height)
@@ -118,7 +119,7 @@ class menuButton(QPushButton):
                 color: black;
                 border-radius: 15px;
                 font-family: 'Daily Bubble';
-                font-size: 40px;
+                font-size: S(40)px;
             """)
         self.clicked.connect(self.buttonClick)
         
@@ -132,7 +133,7 @@ class timeKeeper(QLabel):
     """
     En klass som skapar en "label" som sedan visar den aktuella tiden på startsidan.
     """
-    def __init__(self, width=637, height=130):
+    def __init__(self, width=S(637), height=S(130)):
         super().__init__()
         self.setFixedSize(int(width), int(height))  
 
@@ -149,7 +150,7 @@ class timeKeeper(QLabel):
         padding: 10px;   
         color: white;
         font-family: 'Super Vibes';
-        font-size: 60px;            
+        font-size: S(60)px;            
         """)
 
     def updateClock(self):
@@ -165,9 +166,9 @@ class filesWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(667, 1000)) #667x1000 är samma ratio som LCD-skärmen (320x480)
+        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
         label = QLabel(" Fortfarande i utveckling  ")
-        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: 30px;")
+        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
         layout = QGridLayout()
         layout.addWidget(label)
         self.setLayout(layout)
@@ -180,15 +181,46 @@ class LoRaWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(667, 1000)) #667x1000 är samma ratio som LCD-skärmen (320x480)
+        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
         label = QLabel(" Fortfarande i utveckling ")
-        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: 30px;")
+        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
         layout = QGridLayout()
+        self.getLoRaData()  
         layout.addWidget(label)
         self.setLayout(layout)
 
-        
-        
+    def getLoRaData(self):
+        label = QLabel("LoRa module is connecting...")
+   
+        counter = 0
+        try: 
+            lora = LoRa(debug=True) 
+            lora.configure(DEV_EUI, APP_EUI, APP_KEY)
+        except Exception as e:
+            print("Error configuring LoRa module:", e)
+            label.setText("Error configuring LoRa module: " + str(e))
+        try:     
+            lora.startJoin()
+            print("Start Join…")
+            label.setText("Start Join…")
+        except Exception as e:
+            print("Error starting join:", e)
+            label.setText("Error starting join: " + str(e))
+         
+        while not lora.checkJoinStatus():
+            print("Joining…")
+            label.setText("Joining…")
+            counter += 1
+            time.sleep(1)
+            if counter > 10:  # Timeout after 30 seconds
+                label.setText("Timeout, could not connect to LoRa")
+                print("Timeout, could not connect to LoRa")
+
+                return
+        print("Successfully joined!")
+        label.setText("Successfully oined!") 
+   
+
 class statsWindow(QWidget):
     """
         En klass för systemstatistik fönstret
@@ -196,7 +228,7 @@ class statsWindow(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(667, 1000)) #667x1000 är samma ratio som LCD-skärmen (320x480)
+        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
         self.system_temp = self.getSystemTemp()
         sysTemp = self.getSystemTemp()
         tempLabel = QLabel(" System temp: "+ str(sysTemp))
@@ -206,7 +238,7 @@ class statsWindow(QWidget):
             """
             color: black;
             font-family: 'Daily Bubble';
-            font-size: 30px;
+            font-size: S(30)px;
             background-color: #ffcc66;   /* ljusgrön bakgrund*/
             border-radius: 10px;
             padding: 10px;
@@ -218,7 +250,7 @@ class statsWindow(QWidget):
             """
             color: black;
             font-family: 'Daily Bubble';
-            font-size: 30px;
+            font-size: S(30)px;
             background-color: #ffcc66;   /* ljusgrön bakgrund*/
             border-radius: 10px;
             padding: 10px;
@@ -250,10 +282,7 @@ class statsWindow(QWidget):
          except:
              print("could not locate CPU load info")
              return None
-         
     
-    
-
 app = QApplication(sys.argv)
 
 window = MainWindow()
