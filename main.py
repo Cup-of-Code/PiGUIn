@@ -50,7 +50,6 @@ class MainWindow(QMainWindow):
         statsButton.clicked.connect(self.showstats) 
         fileButton.clicked.connect(self.showfiles) 
         LoRaButton.clicked.connect(self.showLoRa)
-        #SettingsButton.clicked.connect(self.showSettings) 
        
 
 
@@ -65,7 +64,7 @@ class MainWindow(QMainWindow):
         containerBox.setLayout(layout)
         self.setCentralWidget(containerBox)
         self.fileButton = filesWindow()
-        self.statsPage = statsWindow() #kollar om statsknappen klickats och skickar isf vidare till statswindow classen
+        self.statsPage = statsWindow() 
         self.LoRaPage = LoRaWindow()
     
 
@@ -99,9 +98,7 @@ class MainWindow(QMainWindow):
         self.LoRaWindow = LoRaWindow()
         self.LoRaWindow.show()  
         
-    # def showSettings(self, checked):
-    #     self.settingsWindow = settingsWindow()      
-    #     self.settingsWindow.show()
+
         
 
 
@@ -173,7 +170,7 @@ class filesWindow(QWidget):
         layout.addWidget(label)
         self.setLayout(layout)
         
-
+#---------------------------------------------LORA KLASSEN---------------------------------------------------------
     
 class LoRaWindow(QWidget):
     """
@@ -182,15 +179,69 @@ class LoRaWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
-        label = QLabel(" Fortfarande i utveckling ")
         self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
-        layout = QGridLayout()
-        self.getLoRaData()  
-        layout.addWidget(label)
-        self.setLayout(layout)
+        self.layout = QGridLayout()
+        self.startButton = QPushButton("Start LoRa")
+        self.startButton.setFixedSize(S(300), S(100))
+        self.startButton.setStyleSheet(
+            """
+            background-color: #093; 
+            color: black;
+            border-radius: 15px;
+            font-family: 'Daily Bubble';
+            font-size: S(40)px;
+            """)
+        connectionState = False
+       
+        self.statusLabel = QLabel("LoRa connection status: " + str(connectionState))
+     
+        self.startButton.clicked.connect(self.loraButtonClicked)
+    
+        self.layout.addWidget(self.startButton, 0, 0)
+        self.layout.addWidget(self.statusLabel, 1, 0) 
+          
+
+        self.setLayout(self.layout)
+
+    def loraButtonClicked(self, checked=False):
+
+        print("LoRa button clicked")
+        connectionState = self.getLoRaData()  #försöker ansluta till nätverket
+        print("LoRa connection state:", connectionState)
+        
+        if (connectionState == True):
+           
+            
+            self.sendMessageButton = QPushButton("Send Message")
+            self.sendMessageButton.setFixedSize(S(300), S(100))
+            self.sendMessageButton.setStyleSheet(
+                """
+                background-color: #093; 
+                color: black;               
+                border-radius: 15px;
+                font-family: 'Daily Bubble';
+                font-size: S(40)px;
+                """)
+                                    
+            self.statusLabel.setText("LoRa connection status: " + str(connectionState)) #uppdaterar statusen
+            self.statusLabel.setStyleSheet(
+                """
+                color: green;
+                font-family: 'Daily Bubble';
+                font-size: S(30)px;
+                background-color:
+            """) #gör texten grön om anslutningen lyckades
+            
+            self.layout.addWidget(self.startButton, 0, 0)
+            self.layout.addWidget(self.sendMessageButton, 2, 0)
+        
+        else:
+            label = QLabel("Could not connect to LoRa")
+            label.setStyleSheet("color: red; font-family: 'Daily Bubble'; font-size: S(30)px;")
+            self.layout.addWidget(label, 1, 0)
+            self.setLayout(self.layout)
 
     def getLoRaData(self):
-        label = QLabel("LoRa module is connecting...")
    
         counter = 0
         try: 
@@ -198,28 +249,28 @@ class LoRaWindow(QWidget):
             lora.configure(DEV_EUI, APP_EUI, APP_KEY)
         except Exception as e:
             print("Error configuring LoRa module:", e)
-            label.setText("Error configuring LoRa module: " + str(e))
+            return True
         try:     
             lora.startJoin()
             print("Start Join…")
-            label.setText("Start Join…")
         except Exception as e:
             print("Error starting join:", e)
-            label.setText("Error starting join: " + str(e))
+            return True
          
         while not lora.checkJoinStatus():
             print("Joining…")
-            label.setText("Joining…")
+
             counter += 1
             time.sleep(1)
-            if counter > 10:  # Timeout after 30 seconds
-                label.setText("Timeout, could not connect to LoRa")
+            if counter > 10:  #timeout funktion
                 print("Timeout, could not connect to LoRa")
 
-                return
+                return True
         print("Successfully joined!")
-        label.setText("Successfully oined!") 
+      
+        return True
    
+#------------------------------------------------------------------------------------------------------
 
 class statsWindow(QWidget):
     """
@@ -282,7 +333,10 @@ class statsWindow(QWidget):
          except:
              print("could not locate CPU load info")
              return None
+         
     
+    
+
 app = QApplication(sys.argv)
 
 window = MainWindow()
