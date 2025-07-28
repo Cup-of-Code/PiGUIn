@@ -7,7 +7,7 @@ import sys
 from PyQt5.QtGui import QFont
 import os, time
 from LoRaWAN import LoRa
-from secrets import DEV_EUI, APP_EUI, APP_KEY  
+
 from PyQt5.QtCore import (
     QSize,
     Qt,
@@ -22,13 +22,26 @@ from PyQt5.QtWidgets import (
     QLabel,
     QGridLayout,
     QWidget,
-   )
+    QStackedWidget,
+    QVBoxLayout,
+    QHBoxLayout,
 
-USE_SCALE     = False         
+   )
+from lora_window import LoRaWindow
+
+#----------------------------------------------------------------------------------------------------------------
+
+USE_SCALE     = False        
 SCALE_FACTOR  = 0.48          # skalar ner storleken från 667×1000 --> 320×480 om aktiverad
 
 def S(v: int) -> int:         
     return int(v * SCALE_FACTOR) if USE_SCALE else v
+
+windowSize  = QSize(S(667), S(1000)) #Sätter storleken till 667x1000 som är samma ratio som LCD-skärmen (320x480)
+
+#----------------------------------------------------------------------------------------------------------------
+
+
 
 
 class MainWindow(QMainWindow):
@@ -37,38 +50,64 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
+        self.setFixedSize(windowSize)
         self.setWindowTitle("PiGUIn")
+
+        self.statsPage = statsWindow()
+        self.filesPage = filesWindow()
+        self.loraPage  = LoRaWindow()
+        self.homePage  = self.homeWindow()         
+
+
+        self.stack = QStackedWidget()
+
+        self.stack.addWidget(self.homePage)
+        self.stack.addWidget(self.statsPage)    
+        self.stack.addWidget(self.filesPage)
+        self.stack.addWidget(self.loraPage)
+
+        self.setCentralWidget(self.stack)
+        self.stack.setCurrentWidget(self.homePage)
+
+        
+
+
+    def homeWindow(self) -> QWidget:
+        page = QWidget()
+        layout = QGridLayout(page)
+
+
         currentTime = timeKeeper()
-        layout = QGridLayout() #med denna layout så sorteras de tillagda komponenterna i en grid-layout
         fileButton = menuButton("Files")
         statsButton = menuButton("System stats")
         LoRaButton = menuButton("LoRa") 
         SettingsButton = menuButton("Settings") #settings knappen är inte implementerad än
 
+
         #Nedan byter till motsvarande fönstret när knappen klickas
-        statsButton.clicked.connect(self.showstats) 
-        fileButton.clicked.connect(self.showfiles) 
-        LoRaButton.clicked.connect(self.showLoRa)
-       
+        statsButton.clicked.connect( lambda: self.jumpToPage(self.statsPage)) #uses lambda to not run the function immediately
+        fileButton.clicked.connect( lambda: self.jumpToPage(self.filesPage)) 
+        LoRaButton.clicked.connect( lambda: self.jumpToPage(self.loraPage))
+        self.statsPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage)) #byter till hem när "home" knappen i statsPage klickas
 
-
-        layout.addWidget(self.greetingPhrase(),0,0) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
-        layout.addWidget(currentTime,1,0) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
+         
+        layout.addWidget(self.greetingPhrase(),0,0,1,2) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
+        layout.addWidget(currentTime,1,0,1,2) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
         layout.addWidget(statsButton, 2,0)
         layout.addWidget(fileButton,2,1)
         layout.addWidget(LoRaButton,3,0)
         layout.addWidget(SettingsButton,3,1)
 
-        containerBox = QWidget()
-        containerBox.setLayout(layout)
-        self.setCentralWidget(containerBox)
-        self.fileButton = filesWindow()
-        self.statsPage = statsWindow() 
-        self.LoRaPage = LoRaWindow()
-    
+        return page
+        
+    def jumpToPage(self, page: QWidget):
+        """ En funktion för knappklick som byter till ny sida
+        """
+        self.stack.setCurrentWidget(page)
 
-    def greetingPhrase(self):
+
+        
+    def greetingPhrase(self) -> QLabel:
         """
         En funktion som skapar en label med en hälsningsfras som beror på tid på dygnet.
         """
@@ -84,22 +123,7 @@ class MainWindow(QMainWindow):
         greetingLabel.setFixedSize(S(450), S(80))  
         greetingLabel.setStyleSheet("color: #cc6699; font-family: 'Super Vibes'; font-size: S(45)px; ") #Daily Bubble är en custom font: dafont.com/daily-bubble.font
 
-        return greetingLabel        
-        
-    def showstats(self, checked):
-       self.statsWindow = statsWindow()
-       self.statsWindow.show()
-        
-    def showfiles(self, checked):
-        self.filesWindow = filesWindow()
-        self.filesWindow.show()  
-
-    def showLoRa(self, checked):
-        self.LoRaWindow = LoRaWindow()
-        self.LoRaWindow.show()  
-        
-
-        
+        return greetingLabel     
 
 
 class menuButton(QPushButton):
@@ -170,107 +194,7 @@ class filesWindow(QWidget):
         layout.addWidget(label)
         self.setLayout(layout)
         
-#---------------------------------------------LORA KLASSEN---------------------------------------------------------
-    
-class LoRaWindow(QWidget):
-    """
-    En klass för LoRa fönstret
-    """
-    def __init__(self):
-        super().__init__()
-        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
-        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
-        self.layout = QGridLayout()
-        self.startButton = QPushButton("Start LoRa")
-        self.startButton.setFixedSize(S(300), S(100))
-        self.startButton.setStyleSheet(
-            """
-            background-color: #093; 
-            color: black;
-            border-radius: 15px;
-            font-family: 'Daily Bubble';
-            font-size: S(40)px;
-            """)
-        connectionState = False
-       
-        self.statusLabel = QLabel("LoRa connection status: " + str(connectionState))
-     
-        self.startButton.clicked.connect(self.loraButtonClicked)
-    
-        self.layout.addWidget(self.startButton, 0, 0)
-        self.layout.addWidget(self.statusLabel, 1, 0) 
-          
 
-        self.setLayout(self.layout)
-
-    def loraButtonClicked(self, checked=False):
-
-        print("LoRa button clicked")
-        connectionState = self.getLoRaData()  #försöker ansluta till nätverket
-        print("LoRa connection state:", connectionState)
-        
-        if (connectionState == True):
-           
-            
-            self.sendMessageButton = QPushButton("Send Message")
-            self.sendMessageButton.setFixedSize(S(300), S(100))
-            self.sendMessageButton.setStyleSheet(
-                """
-                background-color: #093; 
-                color: black;               
-                border-radius: 15px;
-                font-family: 'Daily Bubble';
-                font-size: S(40)px;
-                """)
-                                    
-            self.statusLabel.setText("LoRa connection status: " + str(connectionState)) #uppdaterar statusen
-            self.statusLabel.setStyleSheet(
-                """
-                color: green;
-                font-family: 'Daily Bubble';
-                font-size: S(30)px;
-                background-color:
-            """) #gör texten grön om anslutningen lyckades
-            
-            self.layout.addWidget(self.startButton, 0, 0)
-            self.layout.addWidget(self.sendMessageButton, 2, 0)
-        
-        else:
-            label = QLabel("Could not connect to LoRa")
-            label.setStyleSheet("color: red; font-family: 'Daily Bubble'; font-size: S(30)px;")
-            self.layout.addWidget(label, 1, 0)
-            self.setLayout(self.layout)
-
-    def getLoRaData(self):
-   
-        counter = 0
-        try: 
-            lora = LoRa(debug=True) 
-            lora.configure(DEV_EUI, APP_EUI, APP_KEY)
-        except Exception as e:
-            print("Error configuring LoRa module:", e)
-            return True
-        try:     
-            lora.startJoin()
-            print("Start Join…")
-        except Exception as e:
-            print("Error starting join:", e)
-            return True
-         
-        while not lora.checkJoinStatus():
-            print("Joining…")
-
-            counter += 1
-            time.sleep(1)
-            if counter > 10:  #timeout funktion
-                print("Timeout, could not connect to LoRa")
-
-                return True
-        print("Successfully joined!")
-      
-        return True
-   
-#------------------------------------------------------------------------------------------------------
 
 class statsWindow(QWidget):
     """
@@ -284,32 +208,43 @@ class statsWindow(QWidget):
         sysTemp = self.getSystemTemp()
         tempLabel = QLabel(" System temp: "+ str(sysTemp))
         cpuLoad = self.getCpuLoad()
+        self.backButton = QPushButton(" Home")
         cpuLoadLabel = QLabel(" CPU load: " + str(cpuLoad))
-        cpuLoadLabel.setStyleSheet(
-            """
+        cpuLoadLabel.setStyleSheet("""
             color: black;
             font-family: 'Daily Bubble';
             font-size: S(30)px;
-            background-color: #ffcc66;   /* ljusgrön bakgrund*/
+            background-color: #ffcc66;   
             border-radius: 10px;
             padding: 10px;
-            
             """)
- 
-            
+     
         tempLabel.setStyleSheet(
             """
             color: black;
             font-family: 'Daily Bubble';
             font-size: S(30)px;
-            background-color: #ffcc66;   /* ljusgrön bakgrund*/
+            background-color: #ffcc66;   
+            border-radius: 10px;
+            padding: 10px;
+            """
+        )
+       
+        self.backButton.setStyleSheet(
+            """
+            color: black;
+            font-family: 'Daily Bubble';
+            font-size: S(30)px;
+            background-color:  #389392 ;   
             border-radius: 10px;
             padding: 10px;
             """
         )
         layout = QGridLayout()
-        layout.addWidget(tempLabel,0,1)
-        layout.addWidget(cpuLoadLabel,1,1)
+        layout.addWidget(tempLabel,0,1, 1,1) 
+        layout.addWidget(cpuLoadLabel,1,1, 1,1) 
+        layout.addWidget(self.backButton, 2, 0, 1, 2) 
+        
       
         layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.setLayout(layout)
