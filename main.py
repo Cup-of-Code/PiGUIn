@@ -4,7 +4,7 @@
         #    https://www.dafont.com/daily-bubble.font
     # Filsökvägen på rad 125 kan behöva justeras
 import sys
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QColor, QIcon
 import os, time
 from LoRaWAN import LoRa
 
@@ -23,26 +23,13 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QWidget,
     QStackedWidget,
-    QVBoxLayout,
-    QHBoxLayout,
+    QGraphicsDropShadowEffect
 
    )
 from lora_window import LoRaWindow
 
-#----------------------------------------------------------------------------------------------------------------
 
-USE_SCALE     = False        
-SCALE_FACTOR  = 0.48          # skalar ner storleken från 667×1000 --> 320×480 om aktiverad
-
-def S(v: int) -> int:         
-    return int(v * SCALE_FACTOR) if USE_SCALE else v
-
-windowSize  = QSize(S(667), S(1000)) #Sätter storleken till 667x1000 som är samma ratio som LCD-skärmen (320x480)
-
-#----------------------------------------------------------------------------------------------------------------
-
-
-
+windowSize  = QSize(320, 480) 
 
 class MainWindow(QMainWindow):
     """ 
@@ -73,6 +60,14 @@ class MainWindow(QMainWindow):
 
 
     def homeWindow(self) -> QWidget:
+        self.setStyleSheet("""
+        QMainWindow {
+            background-image: url('clouds.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: blue; 
+        }
+    """)
         page = QWidget()
         layout = QGridLayout(page)
 
@@ -89,8 +84,9 @@ class MainWindow(QMainWindow):
         fileButton.clicked.connect( lambda: self.jumpToPage(self.filesPage)) 
         LoRaButton.clicked.connect( lambda: self.jumpToPage(self.loraPage))
         self.statsPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage)) #byter till hem när "home" knappen i statsPage klickas
+        self.filesPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage))
+        self.loraPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage))
 
-         
         layout.addWidget(self.greetingPhrase(),0,0,1,2) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
         layout.addWidget(currentTime,1,0,1,2) #0,1 indikerar rad 0, kolumn 1 i grid-layouten
         layout.addWidget(statsButton, 2,0)
@@ -120,8 +116,8 @@ class MainWindow(QMainWindow):
             greeting = "Good evening!"
         
         greetingLabel = QLabel(greeting)
-        greetingLabel.setFixedSize(S(450), S(80))  
-        greetingLabel.setStyleSheet("color: #cc6699; font-family: 'Super Vibes'; font-size: S(45)px; ") #Daily Bubble är en custom font: dafont.com/daily-bubble.font
+        greetingLabel.setFixedSize(216, 38)  
+        greetingLabel.setStyleSheet("color: #cc6699; font-family: 'Super Vibes'; font-size: 21px; ") #Daily Bubble är en custom font: dafont.com/daily-bubble.font
 
         return greetingLabel     
 
@@ -130,17 +126,32 @@ class menuButton(QPushButton):
     """
     En klass för att skapa återanvändbara knappar till menufunktionaliteten
     """  
-    def __init__(self, title, width= S(300), height=S(300)):
+    def __init__(self, title, width= 144, height=144):
+      
         super().__init__(title)
         self.title = title
         self.setFixedSize(width, height)
+        #button styling: 
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(10)
+        shadow.setXOffset(5)
+        shadow.setYOffset(5)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        self.setGraphicsEffect(shadow)
+        
         self.setStyleSheet(
             """
-                background-color: #093; 
+            QPushButton {
+                background-color: #093;
                 color: black;
                 border-radius: 15px;
                 font-family: 'Daily Bubble';
-                font-size: S(40)px;
+                font-size: 19px;
+            }
+            QPushButton::hover { /* byter färg när musen är över knappen */
+                background-color: #0a5;
+            }
+
             """)
         self.clicked.connect(self.buttonClick)
         
@@ -154,7 +165,7 @@ class timeKeeper(QLabel):
     """
     En klass som skapar en "label" som sedan visar den aktuella tiden på startsidan.
     """
-    def __init__(self, width=S(637), height=S(130)):
+    def __init__(self, width=305, height=62):
         super().__init__()
         self.setFixedSize(int(width), int(height))  
 
@@ -171,7 +182,7 @@ class timeKeeper(QLabel):
         padding: 10px;   
         color: white;
         font-family: 'Super Vibes';
-        font-size: S(60)px;            
+        font-size: 28px;            
         """)
 
     def updateClock(self):
@@ -187,33 +198,83 @@ class filesWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
-        label = QLabel(" Fortfarande i utveckling  ")
-        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
+        self.setFixedSize(QSize(320, 480))
+        self.backButton = QPushButton(" Home")
+        self.backButton.setFixedSize(144, 48)
+        shadow = QGraphicsDropShadowEffect(self.backButton)
+        shadow.setBlurRadius(10)
+        shadow.setXOffset(5)
+        shadow.setYOffset(5)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        self.setGraphicsEffect(shadow)
+        self.backButton.setStyleSheet("""
+            QPushButton {
+                color: black;
+                font-family: 'Daily Bubble';
+                font-size: 14px;
+                background-color:  #389392 ;   
+                border-radius: 10px;
+            }
+            QPushButton::hover {
+                background-color: #0a5;
+            }
+      
+        """)
+
+        self.filesLabel = QLabel()
+        getFiles = self.getFiles() #hämtar filerna från getFiles funktionen
+        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: 14px;")
         layout = QGridLayout()
-        layout.addWidget(label)
+
+        layout.addWidget(self.filesLabel,1,0,1,1)
+        layout.addWidget(self.backButton, 0, 0, 1, 1)
+        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
         self.setLayout(layout)
         
+    def getFiles(self):
+        """Läser alla rader och visar dem i labeln."""
+        try:
+            rows = []
+            with open('/home/charlotta/Documents/temp.txt') as filesText:
+                for line in filesText:
+                    rows.append(f"<p>{line.strip()}</p>")
+            self.filesLabel.setText("".join(rows) if rows else "Inga filer hittades")
+        except Exception as e:
+            print("could not locate files:", e)
+            self.filesLabel.setText("Fel: {e}</i>")
+            return None
 
 
 class statsWindow(QWidget):
     """
-        En klass för systemstatistik fönstret
+        En klass för systemstatistik-fönstret
     """
 
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
-        self.system_temp = self.getSystemTemp()
+        self.setFixedSize(QSize(320, 480)) 
         sysTemp = self.getSystemTemp()
         tempLabel = QLabel(" System temp: "+ str(sysTemp))
         cpuLoad = self.getCpuLoad()
         self.backButton = QPushButton(" Home")
         cpuLoadLabel = QLabel(" CPU load: " + str(cpuLoad))
+
+        # self.updateTimer = QTimer(self)
+        # self.updateTimer.timeout.connect(self.updateStats)
+        # self.updateTimer.start(1000)
+        shadow = QGraphicsDropShadowEffect(self.backButton)
+        shadow.setBlurRadius(10)
+        shadow.setXOffset(5)
+        shadow.setYOffset(5)
+        shadow.setColor(QColor(0, 0, 0, 160))
+        self.setGraphicsEffect(shadow)
+
+
         cpuLoadLabel.setStyleSheet("""
             color: black;
             font-family: 'Daily Bubble';
-            font-size: S(30)px;
+            font-size: 14px;
             background-color: #ffcc66;   
             border-radius: 10px;
             padding: 10px;
@@ -223,33 +284,45 @@ class statsWindow(QWidget):
             """
             color: black;
             font-family: 'Daily Bubble';
-            font-size: S(30)px;
+            font-size: 14px;
             background-color: #ffcc66;   
             border-radius: 10px;
             padding: 10px;
+         
+
             """
         )
        
-        self.backButton.setStyleSheet(
+        self.backButton.setStyleSheet("""
+                                      
+            QPushButton {
+                color: black;
+                font-family: 'Daily Bubble';
+                font-size: 14px;
+                background-color:  #389392 ;   
+                border-radius: 10px;
+                padding: 10px;
+            }
+            QPushButton::hover {
+                background-color: #0a5;
+            }
+           
             """
-            color: black;
-            font-family: 'Daily Bubble';
-            font-size: S(30)px;
-            background-color:  #389392 ;   
-            border-radius: 10px;
-            padding: 10px;
-            """
+
         )
         layout = QGridLayout()
-        layout.addWidget(tempLabel,0,1, 1,1) 
-        layout.addWidget(cpuLoadLabel,1,1, 1,1) 
-        layout.addWidget(self.backButton, 2, 0, 1, 2) 
+        layout.addWidget(tempLabel,1,1, 1,1) 
+        layout.addWidget(cpuLoadLabel,2,1, 1,1) 
+        layout.addWidget(self.backButton, 0, 0, 1, 2) 
         
       
         layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+   
         self.setLayout(layout)
-        
-        
+
+    # def updateStats(self):
+    #     sysTemp = self.getSystemTemp()
+    #     cpuLoad = self.getCpuLoad()
         
     def getSystemTemp(self):
          try:
