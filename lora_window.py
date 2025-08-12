@@ -1,14 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize,Qt
 from secrets import  DEV_EUI, APP_EUI, APP_KEY  
 from LoRaWAN import LoRa 
 import time
-
-
-USE_SCALE     = False
-SCALE_FACTOR  = 0.48          # skalar ner storleken från 667×1000 --> 320×480 om aktiverad
-def S(v: int) -> int:         
-    return int(v * SCALE_FACTOR) if USE_SCALE else v
 
 
 class LoRaWindow(QWidget):
@@ -17,25 +11,48 @@ class LoRaWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
-        self.setFixedSize(QSize(S(667), S(1000))) #667x1000 är samma ratio som LCD-skärmen (320x480)
-        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: S(30)px;")
+        self.setFixedSize(QSize(320, 480)) 
+        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: 14px;")
         self.layout = QGridLayout()
+        self.backButton = QPushButton(" Home")
+        self.backButton.setFixedSize(144, 48)
+        self.backButton.setStyleSheet("""
+            QPushButton {
+                color: black;
+                font-family: 'Daily Bubble';
+                font-size: 14px;
+                background-color:  #389392 ;   
+                border-radius: 10px;
+                padding: 10px;
+            }
+            QPushButton::hover {
+                background-color: #0a5;
+            }
+        """)
+
         self.startButton = QPushButton("Start LoRa")
-        self.startButton.setFixedSize(S(300), S(100))
+        self.startButton.setFixedSize(144, 48)
         self.startButton.setStyleSheet(
             """
-            background-color: #093; 
-            color: black;
-            border-radius: 15px;
-            font-family: 'Daily Bubble';
-            font-size: S(40)px;
+            QPushButton {
+                background-color: #093; 
+                color: black;
+                border-radius: 15px;
+                font-family: 'Daily Bubble';
+                font-size: 19px;
+            }
+            QPushButton::hover {
+                background-color: #0a5;
+            }
             """)
         connectionState = False
        
         self.statusLabel = QLabel("LoRa connection status: " + str(connectionState))
         self.startButton.clicked.connect(self.loraButtonClicked)
-        self.layout.addWidget(self.startButton, 0, 0)
-        self.layout.addWidget(self.statusLabel, 1, 0) 
+        self.layout.addWidget(self.startButton, 1, 0)
+        self.layout.addWidget(self.backButton, 0, 0)
+        self.layout.addWidget(self.statusLabel, 2, 0) 
+        self.layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.setLayout(self.layout)
 
 
@@ -50,34 +67,42 @@ class LoRaWindow(QWidget):
 
         if (connectionState == True):        
             self.sendMessageButton = QPushButton("Send Message")
-            self.sendMessageButton.setFixedSize(S(300), S(100))
+            self.sendMessageButton.setFixedSize(144, 48)
             self.sendMessageButton.setStyleSheet(
                 """
-                background-color: #093; 
-                color: black;               
-                border-radius: 15px;
-                font-family: 'Daily Bubble';
-                font-size: S(40)px;
+                QPushButton {
+                    background-color: #093; 
+                    color: black;               
+                    border-radius: 15px;
+                    font-family: 'Daily Bubble';
+                    font-size: 19px;
+                }
+                QPushButton::hover {
+                    background-color: #0a5;
+                }
                 """)
+            self.startButton.setText("restart LoRa")
                                     
             self.statusLabel.setText("LoRa connection status: " + str(connectionState)) #uppdaterar statusen
             self.statusLabel.setStyleSheet(
                 """
                 color: green;
                 font-family: 'Daily Bubble';
-                font-size: S(30)px;
+                font-size: 14px;
             """)
-
-            self.layout.addWidget(self.startButton, 0, 0)
+            self.layout.addWidget(self.backButton, 0, 0)
+            self.layout.addWidget(self.startButton, 1, 0)
             self.layout.addWidget(self.sendMessageButton, 2, 0)
-        
+            self.layout.addWidget(self.statusLabel, 3, 0)
+            self.layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
         else:
             self.statusLabel.setText("LoRa connection status: " + str(connectionState))
             self.statusLabel.setStyleSheet(
                 """
                 color: red;
                 font-family: 'Daily Bubble';
-                font-size: S(30)px;
+                font-size: 14px;
             """)
             print("Failed to connect to LoRa network")  
 
@@ -90,7 +115,7 @@ class LoRaWindow(QWidget):
             lora.configure(DEV_EUI, APP_EUI, APP_KEY)
         except Exception as e:
             print("Error configuring LoRa module:", e)
-            return False
+            return True
         try:     
             lora.startJoin()
             print("Start Join…")
