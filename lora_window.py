@@ -1,4 +1,9 @@
-from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
+#DISCLAIMER: 
+    #Några externa fonts kan behöva laddas ner för att köra programmet:
+        #    https://www.dafont.com/super-vibes.font
+        #    https://www.dafont.com/daily-bubble.font
+
+from PyQt5.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel,QLineEdit
 from PyQt5.QtCore import QSize,Qt
 from secrets import  DEV_EUI, APP_EUI, APP_KEY  
 from LoRaWAN import LoRa 
@@ -52,6 +57,7 @@ class LoRaWindow(QWidget):
         self.layout.addWidget(self.startButton, 1, 0)
         self.layout.addWidget(self.backButton, 0, 0)
         self.layout.addWidget(self.statusLabel, 2, 0) 
+        
         self.layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.setLayout(self.layout)
 
@@ -65,7 +71,14 @@ class LoRaWindow(QWidget):
         
         
 
-        if (connectionState == True):        
+        if (connectionState == True):       
+    
+            self.messageEdit = QLineEdit()
+            self.messageEdit.setPlaceholderText("Type message to send over LoRa")
+            self.messageEdit.setMaxLength(200) 
+            self.messageEdit.setFixedWidth(280)
+            self.messageEdit.setEnabled(True) 
+
             self.sendMessageButton = QPushButton("Send Message")
             self.sendMessageButton.setFixedSize(144, 48)
             self.sendMessageButton.setStyleSheet(
@@ -94,7 +107,12 @@ class LoRaWindow(QWidget):
             self.layout.addWidget(self.startButton, 1, 0)
             self.layout.addWidget(self.sendMessageButton, 2, 0)
             self.layout.addWidget(self.statusLabel, 3, 0)
+            self.layout.addWidget(self.messageEdit,    4, 0)
             self.layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
+            self.sendMessageButton.clicked.connect(self.sendMessage)  # Connect the button to the sendMessage method
+
+       
 
         else:
             self.statusLabel.setText("LoRa connection status: " + str(connectionState))
@@ -106,6 +124,14 @@ class LoRaWindow(QWidget):
             """)
             print("Failed to connect to LoRa network")  
 
+    def sendMessage(self):
+            message = "ping" #bör ändras senare men endast ping för testning
+            payload = message.encode("utf-8").hex()  
+            print("Sending message:",payload)
+            try:
+                LoRa.sendMsg(payload)
+            except Exception as e:
+                print("Error sending message:", e)
 
     def getLoRaData(self):
    
@@ -115,7 +141,7 @@ class LoRaWindow(QWidget):
             lora.configure(DEV_EUI, APP_EUI, APP_KEY)
         except Exception as e:
             print("Error configuring LoRa module:", e)
-            return True
+            return False
         try:     
             lora.startJoin()
             print("Start Join…")
