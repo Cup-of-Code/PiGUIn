@@ -2,9 +2,9 @@
     #Några externa fonts kan behöva laddas ner för att köra programmet:
         #    https://www.dafont.com/super-vibes.font
         #    https://www.dafont.com/daily-bubble.font
-    # Filsökvägen på rad 125 kan behöva justeras
+
 import sys
-from PyQt5.QtGui import QFont, QColor, QIcon
+from PyQt5.QtGui import  QColor
 import os, time
 from LoRaWAN import LoRa
 
@@ -23,7 +23,8 @@ from PyQt5.QtWidgets import (
     QGridLayout,
     QWidget,
     QStackedWidget,
-    QGraphicsDropShadowEffect
+    QGraphicsDropShadowEffect,
+    QLineEdit,
 
    )
 from lora_window import LoRaWindow
@@ -43,7 +44,8 @@ class MainWindow(QMainWindow):
         self.statsPage = statsWindow()
         self.filesPage = filesWindow()
         self.loraPage  = LoRaWindow()
-        self.homePage  = self.homeWindow()         
+        self.settingsPage = SettingsWindow()
+        self.homePage  = self.homeWindow()
 
 
         self.stack = QStackedWidget()
@@ -52,6 +54,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.statsPage)    
         self.stack.addWidget(self.filesPage)
         self.stack.addWidget(self.loraPage)
+        self.stack.addWidget(self.settingsPage)
 
         self.setCentralWidget(self.stack)
         self.stack.setCurrentWidget(self.homePage)
@@ -83,6 +86,7 @@ class MainWindow(QMainWindow):
         statsButton.clicked.connect( lambda: self.jumpToPage(self.statsPage)) #uses lambda to not run the function immediately
         fileButton.clicked.connect( lambda: self.jumpToPage(self.filesPage)) 
         LoRaButton.clicked.connect( lambda: self.jumpToPage(self.loraPage))
+        SettingsButton.clicked.connect( lambda: self.jumpToPage(self.settingsPage))
         self.statsPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage)) #byter till hem när "home" knappen i statsPage klickas
         self.filesPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage))
         self.loraPage.backButton.clicked.connect(lambda: self.jumpToPage(self.homePage))
@@ -142,8 +146,9 @@ class menuButton(QPushButton):
         self.setStyleSheet(
             """
             QPushButton {
-                background-color: #093;
-                color: black;
+                background-color: #8fa361;
+                color: white;
+                border: 2px solid #5c683f;
                 border-radius: 15px;
                 font-family: 'Daily Bubble';
                 font-size: 19px;
@@ -206,7 +211,7 @@ class filesWindow(QWidget):
         shadow.setXOffset(5)
         shadow.setYOffset(5)
         shadow.setColor(QColor(0, 0, 0, 160))
-        self.setGraphicsEffect(shadow)
+        self.backButton.setGraphicsEffect(shadow)
         self.backButton.setStyleSheet("""
             QPushButton {
                 color: black;
@@ -234,12 +239,15 @@ class filesWindow(QWidget):
         
     def getFiles(self):
         """Läser alla rader och visar dem i labeln."""
+        documents_dir = "/home/charlotta/Documents" #ändras efter enhetens filstruktur
+        files = []
         try:
-            rows = []
-            with open('/home/charlotta/Documents/temp.txt') as filesText:
-                for line in filesText:
-                    rows.append(f"<p>{line.strip()}</p>")
-            self.filesLabel.setText("".join(rows) if rows else "Inga filer hittades")
+            entries = os.listdir(documents_dir)
+            for file in entries:
+                print(file)
+                files.append(file)
+            self.filesLabel.setText("\n".join(files) if files else "Inga filer hittades")
+
         except Exception as e:
             print("could not locate files:", e)
             self.filesLabel.setText("Fel: {e}</i>")
@@ -259,7 +267,8 @@ class statsWindow(QWidget):
         cpuLoad = self.getCpuLoad()
         self.backButton = QPushButton(" Home")
         cpuLoadLabel = QLabel(" CPU load: " + str(cpuLoad))
-
+        memoryUsage = self.getMemoryUsage()
+        memoryLabel = QLabel("  " + str(memoryUsage))
         # self.updateTimer = QTimer(self)
         # self.updateTimer.timeout.connect(self.updateStats)
         # self.updateTimer.start(1000)
@@ -292,7 +301,16 @@ class statsWindow(QWidget):
 
             """
         )
-       
+        memoryLabel.setStyleSheet(
+            """
+            color: black;
+            font-family: 'Daily Bubble';
+            font-size: 14px;
+            background-color: #ffcc66;   
+            border-radius: 10px;
+            padding: 10px;
+            """
+        )
         self.backButton.setStyleSheet("""
                                       
             QPushButton {
@@ -313,6 +331,7 @@ class statsWindow(QWidget):
         layout = QGridLayout()
         layout.addWidget(tempLabel,1,1, 1,1) 
         layout.addWidget(cpuLoadLabel,2,1, 1,1) 
+        layout.addWidget(memoryLabel,3,1, 1,1)
         layout.addWidget(self.backButton, 0, 0, 1, 2) 
         
       
@@ -342,8 +361,39 @@ class statsWindow(QWidget):
              print("could not locate CPU load info")
              return None
          
-    
-    
+    def getMemoryUsage(self):
+        try:
+            mem_info = {}
+            with open('/proc/meminfo') as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2:  
+                        key = parts[0].rstrip(':')
+                        value = int(parts[1])  
+                        mem_info[key] = value
+
+            total = mem_info['MemTotal']
+            available = mem_info['MemAvailable']
+            used = total - available
+            percent_used = (used / total) * 100
+
+            return f"Memory load: {used/total * 100:.2f}%"
+        except Exception as e:
+            print(f"could not locate memory usage info: {e}")
+            return None
+
+class SettingsWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Settings")
+        self.setFixedSize(QSize(400, 300))
+        self.setStyleSheet("color: black; font-family: 'Daily Bubble'; font-size: 14px;")
+        layout = QGridLayout(self)
+        about = QLabel("About this system:")
+        about.setStyleSheet("font-family: 'Daily Bubble'; font-size: 14px;")
+        layout.addWidget(about, 0, 0)
+        layout.setAlignment(Qt.AlignTop)
+        self.setLayout(layout)
 
 app = QApplication(sys.argv)
 
